@@ -80,11 +80,19 @@ class Operation(DifferentiableUnitary):
     def params(self) -> list[float]:
         """The operation's parameters for its gate."""
         return self._params
-
+    
     @params.setter
     def params(self, params: list[float]) -> None:
         self.check_parameters(params)
         self._params = params
+
+    def get_pulse(self) -> bool:
+        """Returns a pulse-level parameterization, if available for this operation, or returns False"""
+        return self.gate.get_pulse(self.location, self.params)
+
+    def add_pulse(self, times:list[float], p_pulse:list[float], q_pulse:list[float]) -> None:
+        """Add pulse-level description of this operation"""
+        self.gate.add_pulse(self.location, self.params, times, p_pulse, q_pulse)
 
     def get_qasm(self) -> str:
         """

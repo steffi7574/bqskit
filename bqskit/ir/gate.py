@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Callable
 from typing import ClassVar
 from typing import TYPE_CHECKING
+import numpy as np
 
 from bqskit.ir.location import CircuitLocation
 from bqskit.qis.unitary.unitary import Unitary
@@ -23,6 +24,40 @@ class Gate(Unitary):
 
     _name: str
     _qasm_name: str
+
+    # Adding pulse property to the gate. 
+    def __init__(self):
+        if not hasattr(self, "_pulse_dict"):
+            self._pulse_dict = []  # Ensures every instance has a _pulse_dict
+
+    @property
+    def pulse(self) -> dict:
+        """Pulse description"""
+        if not hasattr(self, "_pulse_dict"):
+            self._pulse_dict = []
+        return self._pulse_dict
+
+
+    def add_pulse(self, location:CircuitLocation, params:RealVector, times:RealVector, p_pulse:RealVector, q_pulse:RealVector):
+        pulse_dict = {"location": location,
+                      "params"  : params,
+                      "times"   : times,
+                      "p_pulse" : p_pulse,
+                      "q_pulse" : q_pulse
+                      }
+        self._pulse_dict.append(pulse_dict)
+
+    def get_pulse(self, location: CircuitLocation, params: RealVector, tol:float=1e-8) -> bool:
+        """Check if the gate has a pulse parameterization for given location and gate parameters. """
+        desired_utry = self.get_unitary(params)
+        for pulse in self.pulse:
+            if location == pulse["location"]:
+                test_utry = self.get_unitary(pulse["params"])
+                infid = 1.0 - np.abs(np.trace(desired_utry.conj().T @ test_utry))**2/np.prod(self.radixes)**2
+                if infid < tol:
+                    return pulse
+
+        return False 
 
     @property
     def name(self) -> str:
