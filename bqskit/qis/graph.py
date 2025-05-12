@@ -38,6 +38,8 @@ class CouplingGraph(Collection[Tuple[int, int]]):
         default_weight: float = 1.0,
         default_remote_weight: float = 100.0,
         edge_weights_overrides: Mapping[tuple[int, int], float] = {},
+        coupling_strengths: Mapping[tuple[int, int], float] = {},
+        default_coupling_strength: float | None = None,
     ) -> None:
         """
         Construct a new CouplingGraph.
@@ -149,6 +151,15 @@ class CouplingGraph(Collection[Tuple[int, int]]):
             self._mat: list[list[float]] = graph._mat
             self.default_weight: float = graph.default_weight
             self.default_remote_weight: float = graph.default_remote_weight
+            self._J = graph._J
+            # apply fresh overrides that the caller passed in 
+            if default_coupling_strength is not None:
+                for q1, q2 in self._edges:
+                    if self._J[q1][q2] is None:
+                        self._J[q1][q2] = self._J[q2][q1] = default_coupling_strength
+            for (q1, q2), J in coupling_strengths.items():
+                self._J[q1][q2] = self._J[q2][q1] = J
+            # ---------------------------------------------------------------
             return
 
         calc_num_qudits = 0
@@ -190,6 +201,24 @@ class CouplingGraph(Collection[Tuple[int, int]]):
         for (q1, q2), weight in edge_weights_overrides.items():
             self._mat[q1][q2] = weight
             self._mat[q2][q1] = weight
+
+        # Store coupling strength in the symmetrix matrix _J
+        if any(e not in self._edges for e in coupling_strengths):
+            raise ValueError("All Jkl overrides must correspond to an edge.")
+        self._J = [
+            [default_coupling_strength for _ in range(self.num_qudits)]
+            for _ in range(self.num_qudits)
+        ]
+        if default_coupling_strength is not None:
+            for (q1, q2) in self._edges:
+                self._J[q1][q2] = self._J[q2][q1] = default_coupling_strength
+        for (q1, q2), J in coupling_strengths.items():
+            self._J[q1][q2] = self._J[q2][q1] = J
+
+    # Accessor for the coupling strength between qubits
+    def coupling(self, q1: int, q2: int) -> float | None:
+        """Return Jkl for the edge (q1,q2) or None if not specified."""
+        return self._J[q1][q2]
 
     def get_qpu_to_qudit_map(self) -> list[list[int]]:
         """Return a mapping of QPU indices to qudit indices."""
